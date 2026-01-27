@@ -1,0 +1,41 @@
+int suma(int a, int b) {
+    return a + b;
+}
+
+float promedio(float x, float y) {
+    float resultado;
+    resultado = (x + y) / 2.0;
+    return resultado;
+}
+
+int main() {
+    int numero1;
+    int numero2;
+    float valor1;
+    float valor2;
+    int resultado;
+    
+    numero1 = 10;
+    numero2 = 20;
+    valor1 = 3.14;
+    valor2 = 2.5;
+    
+    if (numero1 < numero2) {
+        resultado = suma(numero1, numero2);
+    } else {
+        resultado = 0;
+    }
+    
+    while (numero1 > 0 && numero2 != 0) {
+        numero1 = numero1 - 1;
+        if (numero1 == 5 || numero2 >= 15) {
+            break;
+        }
+    }
+    
+    if (!(valor1 <= valor2)) {
+        valor1 = valor1 * 2.0;
+    }
+    
+    return 0;
+}
