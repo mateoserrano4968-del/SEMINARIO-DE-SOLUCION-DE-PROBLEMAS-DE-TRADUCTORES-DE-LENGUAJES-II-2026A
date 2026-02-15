@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Validador JSON Schema</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 900px; margin: 20px auto; padding: 20px; background: #f5f5f5; }
+    h1 { color: #333; }
+    .caja { background: white; padding: 15px; margin: 10px 0; border-radius: 8px; border: 1px solid #ddd; }
+    label { font-weight: bold; display: block; margin-bottom: 5px; }
+    textarea { width: 100%; min-height: 100px; font-family: monospace; font-size: 14px; }
+    .codigo { min-height: 180px; }
+    button { background: #3498db; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-size: 16px; }
+    button:hover { background: #2980b9; }
+    .ok { color: #27ae60; font-weight: bold; }
+    .error { color: #e74c3c; font-weight: bold; }
+    pre { background: #2d2d2d; color: #f8f8f2; padding: 15px; overflow-x: auto; border-radius: 5px; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <h1>🧩 Validador de datos con JSON Schema</h1>
+  <p>Traductores de Lenguajes II - Traductor que genera código automáticamente</p>
+
+  <div class="caja">
+    <label>Schema (JSON Schema)</label>
+    <textarea id="schema">{
+  "type": "object",
+  "properties": {
+    "nombre": { "type": "string", "minLength": 3 },
+    "edad": { "type": "number", "minimum": 18 },
+    "correo": { "type": "string", "format": "email" }
+  },
+  "required": ["nombre", "edad", "correo"]
+}</textarea>
+  </div>
+
+  <div class="caja">
+    <label>Datos (JSON)</label>
+    <textarea id="datos">{
+  "nombre": "Mateo",
+  "edad": 20,
+  "correo": "mateo@gmail.com"
+}</textarea>
+  </div>
+
+  <button onclick="validar()">Validar</button>
+
+  <div class="caja" id="resultado"></div>
+
+  <div class="caja">
+    <label>📄 Código generado (traductor)</label>
+    <textarea id="codigo" class="codigo" readonly></textarea>
+  </div>
+
+  <script type="module">
+    import Ajv from 'https://esm.sh/ajv@8.12.0';
+    import addFormats from 'https://esm.sh/ajv-formats';
+
+    function generarCodigoAjv(schema) {
+      return `const Ajv = require("ajv");
+const addFormats = require("ajv-formats");
+const ajv = new Ajv();
+addFormats(ajv);
+
+const schema = ${JSON.stringify(schema, null, 2)};
+
+const validate = ajv.compile(schema);
+module.exports = validate;`;
+    }
+
+    window.validar = function() {
+      const schemaEl = document.getElementById('schema');
+      const datosEl = document.getElementById('datos');
+      const resultadoEl = document.getElementById('resultado');
+      const codigoEl = document.getElementById('codigo');
+
+      let schema, datos;
+      try {
+        schema = JSON.parse(schemaEl.value);
+      } catch (e) {
+        resultadoEl.innerHTML = '<span class="error">❌ Schema JSON inválido: ' + e.message + '</span>';
+        codigoEl.value = '';
+        return;
+      }
+      try {
+        datos = JSON.parse(datosEl.value);
+      } catch (e) {
+        resultadoEl.innerHTML = '<span class="error">❌ Datos JSON inválidos: ' + e.message + '</span>';
+        codigoEl.value = '';
+        return;
+      }
+
+      codigoEl.value = generarCodigoAjv(schema);
+
+      const ajv = new Ajv();
+      addFormats(ajv);
+      const validate = ajv.compile(schema);
+      const valido = validate(datos);
+
+      if (valido) {
+        resultadoEl.innerHTML = '<span class="ok">✅ Datos válidos</span>';
+      } else {
+        resultadoEl.innerHTML = '<span class="error">❌ Errores:</span><pre>' + JSON.stringify(validate.errors, null, 2) + '</pre>';
+      }
+    };
+
+    validar();
+  </script>
+</body>
+</html>

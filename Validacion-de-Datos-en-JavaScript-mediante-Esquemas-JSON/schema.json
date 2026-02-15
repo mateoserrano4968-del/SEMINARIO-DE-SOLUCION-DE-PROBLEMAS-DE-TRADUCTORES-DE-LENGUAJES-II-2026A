@@ -1,0 +1,9 @@
+{
+  "type": "object",
+  "properties": {
+    "nombre": { "type": "string", "minLength": 3 },
+    "edad": { "type": "number", "minimum": 18 },
+    "correo": { "type": "string", "format": "email" }
+  },
+  "required": ["nombre", "edad", "correo"]
+}
