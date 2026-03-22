@@ -1,0 +1,219 @@
+
+from typing import List, Optional
+
+from tokens import Token, TokenType
+
+
+class AnalizadorLexico:
+
+    PALABRAS_RESERVADAS = {
+        'if': TokenType.IF,
+        'while': TokenType.WHILE,
+        'return': TokenType.RETURN,
+        'else': TokenType.ELSE,
+        'int': TokenType.TIPO,
+        'float': TokenType.TIPO,
+        'void': TokenType.TIPO
+    }
+
+    def __init__(self, codigo: str):
+        self.codigo = codigo
+        self.posicion = 0
+        self.linea = 1
+        self.columna = 1
+        self.tokens: List[Token] = []
+        self.errores: List[str] = []
+
+    def siguiente_caracter(self) -> Optional[str]:
+        if self.posicion >= len(self.codigo):
+            return None
+        return self.codigo[self.posicion]
+
+    def avanzar(self, n: int = 1) -> None:
+        for _ in range(n):
+            if self.posicion < len(self.codigo):
+                if self.codigo[self.posicion] == '\n':
+                    self.linea += 1
+                    self.columna = 1
+                else:
+                    self.columna += 1
+                self.posicion += 1
+
+    def _reconocer_identificador(self) -> Optional[Token]:
+        inicio = self.posicion
+        inicio_col = self.columna
+        if not self.siguiente_caracter() or not self.siguiente_caracter().isalpha():
+            return None
+
+        self.avanzar()
+        while self.siguiente_caracter() and self.siguiente_caracter().isalnum():
+            self.avanzar()
+
+        valor = self.codigo[inicio:self.posicion]
+        tipo = self.PALABRAS_RESERVADAS.get(valor, TokenType.IDENTIFICADOR)
+        return Token(tipo, valor, self.linea, inicio_col)
+
+    def _reconocer_numero(self) -> Optional[Token]:
+        inicio = self.posicion
+        inicio_col = self.columna
+        if not self.siguiente_caracter() or not self.siguiente_caracter().isdigit():
+            return None
+
+        while self.siguiente_caracter() and self.siguiente_caracter().isdigit():
+            self.avanzar()
+
+        if (self.siguiente_caracter() == '.' and
+                self.posicion + 1 < len(self.codigo) and
+                self.codigo[self.posicion + 1].isdigit()):
+            self.avanzar()
+            while self.siguiente_caracter() and self.siguiente_caracter().isdigit():
+                self.avanzar()
+            return Token(TokenType.REAL, self.codigo[inicio:self.posicion],
+                        self.linea, inicio_col)
+        return Token(TokenType.ENTERO, self.codigo[inicio:self.posicion],
+                    self.linea, inicio_col)
+
+    def _reconocer_cadena(self) -> Optional[Token]:
+        inicio_col = self.columna
+        if self.siguiente_caracter() != '"':
+            return None
+
+        self.avanzar()
+        inicio = self.posicion
+
+        while self.siguiente_caracter() and self.siguiente_caracter() != '"':
+            if self.siguiente_caracter() == '\n':
+                self.errores.append(
+                    f"Error léxico: Cadena sin cerrar en línea {self.linea}, columna {inicio_col}")
+                return None
+            self.avanzar()
+
+        if not self.siguiente_caracter():
+            self.errores.append(
+                f"Error léxico: Cadena sin cerrar en línea {self.linea}, columna {inicio_col}")
+            return None
+
+        valor = self.codigo[inicio:self.posicion]
+        self.avanzar()
+        return Token(TokenType.CADENA, valor, self.linea, inicio_col)
+
+    def analizar(self) -> List[Token]:
+        self.tokens = []
+        self.errores = []
+        self.posicion = 0
+        self.linea = 1
+        self.columna = 1
+
+        while True:
+            while self.siguiente_caracter() and self.siguiente_caracter() in ' \t\n\r':
+                self.avanzar()
+
+            if self.posicion >= len(self.codigo):
+                break
+
+            char = self.siguiente_caracter()
+            if not char:
+                break
+
+            if char.isalpha():
+                token = self._reconocer_identificador()
+                if token:
+                    self.tokens.append(token)
+            elif char.isdigit():
+                token = self._reconocer_numero()
+                if token:
+                    self.tokens.append(token)
+            elif char == '"':
+                token = self._reconocer_cadena()
+                if token:
+                    self.tokens.append(token)
+            elif char in '+-':
+                col = self.columna
+                self.avanzar()
+                self.tokens.append(Token(TokenType.OP_SUMA, char, self.linea, col))
+            elif char in '*/':
+                col = self.columna
+                self.avanzar()
+                self.tokens.append(Token(TokenType.OP_MUL, char, self.linea, col))
+            elif char in '<>':
+                col = self.columna
+                self.avanzar()
+                if self.siguiente_caracter() == '=':
+                    self.avanzar()
+                    self.tokens.append(
+                        Token(TokenType.OP_RELAC, char + '=', self.linea, col))
+                else:
+                    self.tokens.append(Token(TokenType.OP_RELAC, char, self.linea, col))
+            elif char == '=':
+                col = self.columna
+                self.avanzar()
+                if self.siguiente_caracter() == '=':
+                    self.avanzar()
+                    self.tokens.append(
+                        Token(TokenType.OP_IGUALDAD, '==', self.linea, col))
+                else:
+                    self.tokens.append(Token(TokenType.ASIGNACION, '=', self.linea, col))
+            elif char == '!':
+                col = self.columna
+                self.avanzar()
+                if self.siguiente_caracter() == '=':
+                    self.avanzar()
+                    self.tokens.append(
+                        Token(TokenType.OP_IGUALDAD, '!=', self.linea, col))
+                else:
+                    self.tokens.append(Token(TokenType.OP_NOT, '!', self.linea, col))
+            elif char == '&':
+                col = self.columna
+                self.avanzar()
+                if self.siguiente_caracter() == '&':
+                    self.avanzar()
+                    self.tokens.append(Token(TokenType.OP_AND, '&&', self.linea, col))
+                else:
+                    self.errores.append(
+                        f"Error léxico: Operador '&' incompleto en línea {self.linea}, columna {col}")
+            elif char == '|':
+                col = self.columna
+                self.avanzar()
+                if self.siguiente_caracter() == '|':
+                    self.avanzar()
+                    self.tokens.append(Token(TokenType.OP_OR, '||', self.linea, col))
+                else:
+                    self.errores.append(
+                        f"Error léxico: Operador '|' incompleto en línea {self.linea}, columna {col}")
+            elif char == ';':
+                col = self.columna
+                self.avanzar()
+                self.tokens.append(Token(TokenType.PUNTO_COMA, ';', self.linea, col))
+            elif char == ',':
+                col = self.columna
+                self.avanzar()
+                self.tokens.append(Token(TokenType.COMA, ',', self.linea, col))
+            elif char == '(':
+                col = self.columna
+                self.avanzar()
+                self.tokens.append(
+                    Token(TokenType.PARENTESIS_ABRE, '(', self.linea, col))
+            elif char == ')':
+                col = self.columna
+                self.avanzar()
+                self.tokens.append(
+                    Token(TokenType.PARENTESIS_CIERRA, ')', self.linea, col))
+            elif char == '{':
+                col = self.columna
+                self.avanzar()
+                self.tokens.append(Token(TokenType.LLAVE_ABRE, '{', self.linea, col))
+            elif char == '}':
+                col = self.columna
+                self.avanzar()
+                self.tokens.append(Token(TokenType.LLAVE_CIERRA, '}', self.linea, col))
+            else:
+                self.errores.append(
+                    f"Error léxico: Carácter no reconocido '{char}' "
+                    f"(código {ord(char)}) en línea {self.linea}, columna {self.columna}")
+                self.avanzar()
+
+        self.tokens.append(Token(TokenType.EOF, '$', self.linea, self.columna))
+        return self.tokens
+
+    def tiene_errores(self) -> bool:
+        return len(self.errores) > 0
